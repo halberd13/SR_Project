@@ -11,19 +11,48 @@ import numpy as np
 from basicsr.utils import imwrite
 from gfpgan import GFPGANer
 
-model_path = "D:/github_ncu/GFPGAN/experiments/pretrained_models/GFPGANCleanv1-NoCE-C2.pth"
-dataset_input = 'G:/My Drive/Proposal/Dataset_RFMD/RWMFD_part_2_pro/00000'
+dataset_path = 'G:\My Drive\Research_NCU\dataset\RWMFD_FGNET'
 
-#make directory result
-dataset_result = 'G:/My Drive/Proposal/Dataset_RFMD/RWMFD_part_2_pro_result/00000'
-if os.path.isdir(dataset_result):
-    shutil.rmtree(dataset_result)
-os.mkdir(dataset_result)
+model_path_gfpgan = "D:/github_ncu/GFPGAN/experiments/pretrained_models/GFPGANCleanv1-NoCE-C2.pth"
+model_path_reasgan = 'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth'
+input_folder_list = []
+output_folder_list = []
+
+def rct_folder_result():
+    check_folder = 0
+    for dfolder in os.listdir(dataset_path):
+        if dfolder.endswith("result"):
+            check_folder+=1
+    for dfolder in os.listdir(dataset_path):
+        dpath=""
+        if check_folder > 0 :
+            if dfolder.endswith("result"):
+                dpath = os.path.join(dataset_path, dfolder)
+                shutil.rmtree(dpath)
+                print(f"deleting folders result...{dfolder}")
+                cpath = os.path.join(dataset_path, dfolder)
+                os.mkdir(cpath)
+                print(f"create folders result...{dfolder}")
+                output_folder_list.append(dfolder)
+            else:
+                input_folder_list.append(dfolder)
+        else:
+            cpath = os.path.join(dataset_path, dfolder+"_result")
+            os.mkdir(cpath)
+            print(f"create folders result...{dfolder}_result")    
+            input_folder_list.append(dfolder)
+            output_folder_list.append(dfolder+"_result")
+    
+# rebuild the folder result to make it clean
+rct_folder_result()
+
+            
+
 
 # image = mpimg.imread(image_path)
 # imgplot = plt.imshow(image)
-input_list = sorted(glob.glob(os.path.join(dataset_input, '*')))
-output_list = sorted(glob.glob(os.path.join(dataset_result, '*')))
+# input_folder_list = sorted(glob.glob(os.path.join(folder_list, '*')))
+# output_folder_list = sorted(glob.glob(os.path.join(folder_result, '*')))
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--upscale', type=int, default=2, help='The final upsampling scale of the image')
@@ -46,84 +75,71 @@ parser.add_argument(
     help='Image extension. Options: auto | jpg | png, auto means using the same extension as inputs')
 args = parser.parse_args()
 
-args = parser.parse_args()
-if args.test_path.endswith('/'):
-    args.test_path = args.test_path[:-1]
-os.makedirs(args.save_root, exist_ok=True)
-
-
-
 if not torch.cuda.is_available():  # CPU
     import warnings
     warnings.warn('The unoptimized RealESRGAN is very slow on CPU. We do not use it. '
-                  'If you really want to use it, please modify the corresponding codes.')
+                'If you really want to use it, please modify the corresponding codes.')
     bg_upsampler = None
 else:
     from realesrgan import RealESRGANer
     bg_upsampler = RealESRGANer(
         scale=2,
-        model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth',
+        model_path=model_path_reasgan,
         tile=0,
         tile_pad=10,
         pre_pad=0,
         half=True)  # need to set False in CPU mode
 
 restorer = GFPGANer(
-        model_path=model_path,
+        model_path=model_path_gfpgan,
         upscale=4,
         arch='clean',
         channel_multiplier=2,
         bg_upsampler='realesrgan')
 
-img_list = sorted(glob.glob(os.path.join(dataset_input, '*')))
-for img_path in img_list:
-    # read image
-    img_name = os.path.basename(img_path)
-    print(f'Processing {img_name} ...')
-    basename, ext = os.path.splitext(img_name)
-    input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+for inp_folders in input_folder_list:
+    args.save_root = os.path.join(dataset_path, inp_folders)     
 
-    # restore faces and background if necessary
-    cropped_faces, restored_faces, restored_img = restorer.enhance(
-        input_img, has_aligned="store_true", only_center_face="store_false", paste_back="store_true")
+    img_list = sorted(glob.glob(os.path.join(args.save_root, '*')))
+    for img_path in img_list:
+        img_name = os.path.basename(img_path)
+        print(f'Processing directory: {args.save_root} in image: {img_name} ...')
+        basename, ext = os.path.splitext(img_name)
+        input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
 
-    # save faces
-    for idx, (cropped_face, restored_face) in enumerate(zip(cropped_faces, restored_faces)):
-        # save cropped face
-        save_crop_path = os.path.join(args.save_root, 'cropped_faces', f'{basename}_{idx:02d}.png')
-        imwrite(cropped_face, save_crop_path)
-        # save restored face
-        if args.suffix is not None:
-            save_face_name = f'{basename}_{idx:02d}_{args.suffix}.png'
-        else:
-            save_face_name = f'{basename}_{idx:02d}.png'
-        save_restore_path = os.path.join(args.save_root, 'restored_faces', save_face_name)
-        imwrite(restored_face, save_restore_path)
-        # save comparison image
-        cmp_img = np.concatenate((cropped_face, restored_face), axis=1)
-        imwrite(cmp_img, os.path.join(args.save_root, 'cmp', f'{basename}_{idx:02d}.png'))
+        # restore faces and background if necessary
+        cropped_faces, restored_faces, restored_img = restorer.enhance(
+            input_img, has_aligned="store_true", only_center_face="store_false", paste_back="store_true")
 
-    # save restored img
-    if restored_img is not None:
-        if args.ext == 'auto':
-            extension = ext[1:]
-        else:
-            extension = args.ext
+        # save faces
+        for idx, (cropped_face, restored_face) in enumerate(zip(cropped_faces, restored_faces)):
+            save_result = args.save_root+"_result"
+            # save cropped face
+            save_crop_path = os.path.join(save_result, 'cropped_faces', f'{basename}_{idx:02d}.png')
+            imwrite(cropped_face, save_crop_path)
+            # save restored face
+            if args.suffix is not None:
+                save_face_name = f'{basename}_{idx:02d}_{args.suffix}.png'
+            else:
+                save_face_name = f'{basename}_{idx:02d}.png'
+            save_restore_path = os.path.join(save_result, 'restored_faces', save_face_name)
+            imwrite(restored_face, save_restore_path)
+            # save comparison image
+            cmp_img = np.concatenate((cropped_face, restored_face), axis=1)
+            imwrite(cmp_img, os.path.join(save_result, 'cmp', f'{basename}_{idx:02d}.png'))
 
-        if args.suffix is not None:
-            save_restore_path = os.path.join(args.save_root, 'restored_imgs',
-                                                f'{basename}_{args.suffix}.{extension}')
-        else:
-            save_restore_path = os.path.join(args.save_root, 'restored_imgs', f'{basename}.{extension}')
-        imwrite(restored_img, save_restore_path)
+        # save restored img
+        if restored_img is not None:
+            if args.ext == 'auto':
+                extension = ext[1:]
+            else:
+                extension = args.ext
 
-print(f'Results are in the [{args.save_root}] folder.')
+            if args.suffix is not None:
+                save_restore_path = os.path.join(save_result, 'restored_imgs',
+                                                    f'{basename}_{args.suffix}.{extension}')
+            else:
+                save_restore_path = os.path.join(save_result, 'restored_imgs', f'{basename}.{extension}')
+                imwrite(restored_img, save_restore_path)
 
-# upload images
-# uploaded = files.upload()
-
-
-# for filename in uploaded.keys():
-#   dst_path = os.path.join(upload_folder, filename)
-#   print(f'move {filename} to {dst_path}')
-#   shutil.move(filename, dst_path)
+print(f'Results are in the [{save_result}] folder.')
