@@ -11,7 +11,7 @@ import numpy as np
 from basicsr.utils import imwrite
 from gfpgan import GFPGANer
 
-dataset_path = 'G:\My Drive\Research_NCU\dataset\RWMFD_FGNET'
+dataset_path = 'D:\github_ncu\SR_Project\dataset\RWMFD_FGNET'
 
 model_path_gfpgan = "D:/github_ncu/GFPGAN/experiments/pretrained_models/GFPGANCleanv1-NoCE-C2.pth"
 model_path_reasgan = 'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth'
@@ -45,14 +45,6 @@ def rct_folder_result():
     
 # rebuild the folder result to make it clean
 rct_folder_result()
-
-            
-
-
-# image = mpimg.imread(image_path)
-# imgplot = plt.imshow(image)
-# input_folder_list = sorted(glob.glob(os.path.join(folder_list, '*')))
-# output_folder_list = sorted(glob.glob(os.path.join(folder_result, '*')))
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--upscale', type=int, default=2, help='The final upsampling scale of the image')
@@ -102,44 +94,24 @@ for inp_folders in input_folder_list:
 
     img_list = sorted(glob.glob(os.path.join(args.save_root, '*')))
     for img_path in img_list:
+        
         img_name = os.path.basename(img_path)
         print(f'Processing directory: {args.save_root} in image: {img_name} ...')
         basename, ext = os.path.splitext(img_name)
+        #handling for only extension jpg ,png 
+        if not ext.lower() in (".jpg",".png"):
+            continue
         input_img = cv2.imread(img_path, cv2.IMREAD_COLOR)
 
         # restore faces and background if necessary
         cropped_faces, restored_faces, restored_img = restorer.enhance(
-            input_img, has_aligned="store_true", only_center_face="store_false", paste_back="store_true")
+            input_img, has_aligned=True, only_center_face=False, paste_back=False)
 
         # save faces
         for idx, (cropped_face, restored_face) in enumerate(zip(cropped_faces, restored_faces)):
             save_result = args.save_root+"_result"
-            # save cropped face
-            save_crop_path = os.path.join(save_result, 'cropped_faces', f'{basename}_{idx:02d}.png')
-            imwrite(cropped_face, save_crop_path)
-            # save restored face
-            if args.suffix is not None:
-                save_face_name = f'{basename}_{idx:02d}_{args.suffix}.png'
-            else:
-                save_face_name = f'{basename}_{idx:02d}.png'
-            save_restore_path = os.path.join(save_result, 'restored_faces', save_face_name)
-            imwrite(restored_face, save_restore_path)
             # save comparison image
             cmp_img = np.concatenate((cropped_face, restored_face), axis=1)
             imwrite(cmp_img, os.path.join(save_result, 'cmp', f'{basename}_{idx:02d}.png'))
 
-        # save restored img
-        if restored_img is not None:
-            if args.ext == 'auto':
-                extension = ext[1:]
-            else:
-                extension = args.ext
-
-            if args.suffix is not None:
-                save_restore_path = os.path.join(save_result, 'restored_imgs',
-                                                    f'{basename}_{args.suffix}.{extension}')
-            else:
-                save_restore_path = os.path.join(save_result, 'restored_imgs', f'{basename}.{extension}')
-                imwrite(restored_img, save_restore_path)
-
-print(f'Results are in the [{save_result}] folder.')
+print(f'Results are in the [{args.save_root}] folder.')
