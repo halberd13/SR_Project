@@ -11,9 +11,9 @@ import numpy as np
 from basicsr.utils import imwrite
 from gfpgan import GFPGANer
 
-dataset_path = 'D:\github_ncu\SR_Project\dataset\RWMFD_FGNET'
+dataset_path = 'D:\github_ncu\SR_Project\dataset\RWMFD'
 
-model_path_gfpgan = "D:/github_ncu/GFPGAN/experiments/pretrained_models/GFPGANCleanv1-NoCE-C2.pth"
+model_path_gfpgan = "D:/github_ncu/GFPGAN/experiments/pretrained_models/GFPGANv1.pth"
 model_path_reasgan = 'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth'
 input_folder_list = []
 output_folder_list = []
